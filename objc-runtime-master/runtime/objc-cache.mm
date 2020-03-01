@@ -443,7 +443,7 @@ bool cache_t::canBeFreed()
     return !isConstantEmptyCache();
 }
 
-
+// 旧的内容不会被保留，宁可多次fill
 void cache_t::reallocate(mask_t oldCapacity, mask_t newCapacity)
 {
     bool freeOld = canBeFreed();
@@ -513,7 +513,7 @@ bucket_t * cache_t::find(cache_key_t k, id receiver)
     cache_t::bad_cache(receiver, (SEL)k, cls);
 }
 
-
+// 旧的内容不会被保留
 void cache_t::expand()
 {
     cacheUpdateLock.assertLocked();
@@ -563,7 +563,7 @@ static void cache_fill_nolock(Class cls, SEL sel, IMP imp, id receiver)
     // Scan for the first unused slot and insert there.
     // There is guaranteed to be an empty slot because the 
     // minimum size is 4 and we resized at 3/4 full.
-    bucket_t *bucket = cache->find(key, receiver);
+    bucket_t *bucket = cache->find(key, receiver);  // receiver 只用于失败时打印信息
     if (bucket->key() == 0) cache->incrementOccupied();
     bucket->set(key, imp);
 }

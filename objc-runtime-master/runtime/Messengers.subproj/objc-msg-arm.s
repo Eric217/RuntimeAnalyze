@@ -427,7 +427,7 @@ LExit$0:
 	ENTRY _objc_msgSend
 	MESSENGER_START
 	
-	cbz	r0, LNilReceiver_f
+	cbz	r0, LNilReceiver_f  // r0 = receiver (nil jmp)
 
 	ldr	r9, [r0]		// r9 = self->isa
 	GetClassFromIsa			// r9 = class

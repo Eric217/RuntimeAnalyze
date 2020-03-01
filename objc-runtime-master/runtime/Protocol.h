@@ -40,7 +40,7 @@
 
 // All methods of class Protocol are unavailable. 
 // Use the functions in objc/runtime.h instead.
-
+/* el_comment 所有的协议类的isa都指向此类；Protocol 类没有元类。 */
 OBJC_AVAILABLE(10.0, 2.0, 9.0, 1.0, 2.0)
 @interface Protocol : NSObject
 @end

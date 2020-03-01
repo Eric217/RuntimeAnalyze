@@ -398,9 +398,7 @@ id
 weak_register_no_lock(weak_table_t *weak_table, id referent_id, 
                       id *referrer_id, bool crashIfDeallocating)
 {
-    // 被引用的对象
     objc_object *referent = (objc_object *)referent_id;
-    // 弱引用的指针
     objc_object **referrer = (objc_object **)referrer_id;
     
     if (!referent  ||  referent->isTaggedPointer()) return referent_id;

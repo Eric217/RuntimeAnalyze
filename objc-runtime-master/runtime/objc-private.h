@@ -91,7 +91,7 @@ union isa_t
 #   define ISA_MAGIC_MASK  0x000003f000000001ULL
 #   define ISA_MAGIC_VALUE 0x000001a000000001ULL
     struct {
-        uintptr_t nonpointer        : 1;
+        uintptr_t nonpointer        : 1;    // 32位处理器使用指针做isa，为0
         uintptr_t has_assoc         : 1;
         uintptr_t has_cxx_dtor      : 1;
         uintptr_t shiftcls          : 33; // MACH_VM_MAX_ADDRESS 0x1000000000
@@ -110,9 +110,9 @@ union isa_t
 #   define ISA_MAGIC_VALUE 0x001d800000000001ULL
     struct {
         uintptr_t nonpointer        : 1;
-        uintptr_t has_assoc         : 1; // 对象是否含有或曾经含有关联引用
-        uintptr_t has_cxx_dtor      : 1; // 表示是否有C++析构函数或OC的dealloc
-        uintptr_t shiftcls          : 44; // MACH_VM_MAX_ADDRESS 0x7fffffe00000
+        uintptr_t has_assoc         : 1;
+        uintptr_t has_cxx_dtor      : 1;
+        uintptr_t shiftcls          : 44;   // MACH_VM_MAX_ADDRESS 0x7fffffe00000
         uintptr_t magic             : 6;
         uintptr_t weakly_referenced : 1;
         uintptr_t deallocating      : 1;
@@ -850,6 +850,10 @@ class TimeLogger {
 // for cache-friendly lock striping. 
 // For example, this may be used as StripedMap<spinlock_t>
 // or as StripedMap<SomeStruct> where SomeStruct stores a spin lock.
+/* el_comment 分拆锁 lock splitting & 分离锁 lock striping
+ 分拆锁：程序中共用一个锁，竞争程度很高。为不同功能模块分配一个独立的锁来提高并发。
+ 分离锁：分拆锁的扩展，锁分段。一个功能（哈希表），内含多个对象（桶），使用多个锁，每个锁保护一组对象（一组桶）。
+ 为了实现锁分离--高并发，让每组对象有自己的锁。StripedMap 是约定 T(SideTable) 必须有一套 lock 接口。 */
 template<typename T>
 class StripedMap {
 
@@ -937,6 +941,10 @@ class StripedMap {
 // nil is disguised as itself so zero-filled memory works as expected, 
 // which means 0x80..00 is also disguised as itself but we don't care.
 // Note that weak_entry_t knows about this encoding.
+/* el_comment 0x80..00 后面还会遇到，这里解释一下。
+ 一个无符号数最高位为1，由于 disguise 函数是取该数的负数，最高位符号位必须设为1，也就是说，原数字最高位丢了。
+ 其他位按位取反最后加一，由于其他位全是0，所以取反加一还是全0，综上，该数伪装后不变。
+ */
 template <typename T>
 class DisguisedPtr {
     uintptr_t value;

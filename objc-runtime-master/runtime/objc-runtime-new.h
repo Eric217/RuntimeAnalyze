@@ -50,11 +50,11 @@ public:
 
 // 方法缓存结构体
 struct cache_t {
-    // 存储被缓存方法的哈希表
+    // 存储被缓存方法的哈希表 [{SEL_ptr, IMP}]
     struct bucket_t *_buckets;
-    // 占用的总大小
+    // 占用的总大小 uint32_t
     mask_t _mask;
-    // 已使用大小
+    // 已使用大小 uint32_t
     mask_t _occupied;
 
 public:
@@ -206,7 +206,7 @@ struct entsize_list_tt {
     };
 };
 
-
+/* el_comment 关于 types，根据 TypeEncoding 文档的描述的确可以写出一个IMP的types，也正常用（来自闭包的IMP除外），但系统生成的types例如 c24@0:8@16 会添加数字等额外符号，参考 objc-typeencoding.mm 180行，有时间摸清楚。 */
 struct method_t {
     SEL name;
     const char *types;
@@ -478,14 +478,17 @@ struct locstamped_category_list_t {
 // Note this is is stored in the metaclass.
 #define RW_HAS_DEFAULT_AWZ    (1<<16)
 
-// 11111111111111111111111111111111111111111111000 总共47位
-// 查找第0位，表示是否swift
+/* el_comment 目前iOS程序用户最高地址，或栈底，在虚拟地址 1<<47 下面；
+ 又因为data指针对齐到 1<<3，所以64位data指针里面前17位、后3位一定是0，
+ 这些位可以用来标记其他属性以节省空间。 */
+// class is a Swift class
 #define FAST_IS_SWIFT           (1UL<<0)
-// 当前类或父类是否定义了retain、release等方法
+// class or superclass has default retain/release/autorelease/retainCount/
+//   _tryRetain/_isDeallocating/retainWeakReference/allowsWeakReference
 #define FAST_HAS_DEFAULT_RR     (1UL<<1)
-// 类或父类需要初始化isa
+// class's instances requires raw isa // 类或父类需要初始化isa
 #define FAST_REQUIRES_RAW_ISA   (1UL<<2)
-// 数据段的指针
+// data pointer
 #define FAST_DATA_MASK          0x00007ffffffffff8UL
 
 #else
@@ -531,6 +534,12 @@ struct locstamped_category_list_t {
 struct class_ro_t {
     uint32_t flags;
     uint32_t instanceStart;
+    
+    /* el_comment 编译器计算实例大小时，子类第一个变量是父类结构体，
+     所以相当于把父类变量及当前类变量都放在一起。然后按照结构体大小规则计算，
+     除去一个规则：整体大小不需要是最大成员的倍数，即最后不用补。
+     e.g. 某个类实例的大小，加号左边代表父类：8+1=9，8+1+4+1=8+4+4+1=17，
+     8+1+1+8+1 = 8+8+8+1 = 25  */
     uint32_t instanceSize;
 #ifdef __LP64__
     uint32_t reserved;
@@ -705,6 +714,7 @@ class list_array_tt {
             uint32_t newCount = oldCount + addedCount;
             setArray((array_t *)realloc(array(), array_t::byteSize(newCount)));
             array()->count = newCount;
+            // el_comment 新列表在前，所以最后添加的Category函数最先被找到，覆盖
             memmove(array()->lists + addedCount, array()->lists, 
                     oldCount * sizeof(array()->lists[0]));
             memcpy(array()->lists, addedLists, 
@@ -1270,19 +1280,21 @@ struct objc_class : objc_object {
     }
 
     // May be unaligned depending on class's ivars.
+    // 参考 instanceSize 注释
     uint32_t unalignedInstanceSize() {
         assert(isRealized());
         return data()->ro->instanceSize;
     }
 
     // Class's ivar size rounded up to a pointer-size boundary.
+    // 用于 class_getInstanceSize 获取实例大小，最后补齐
     uint32_t alignedInstanceSize() {
         return word_align(unalignedInstanceSize());
     }
-
+    
+    // 用于为实例分配空间，不是实例大小
     size_t instanceSize(size_t extraBytes) {
         size_t size = alignedInstanceSize() + extraBytes;
-        // CF框架需要所有对象大小最少是16字节
         // CF requires all objects be at least 16 bytes.
         if (size < 16) size = 16;
         return size;

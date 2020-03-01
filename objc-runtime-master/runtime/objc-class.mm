@@ -444,8 +444,6 @@ Ivar object_getInstanceVariable(id obj, const char *name, void **value)
 *   stopping at cls's dtor (if any).
 * Uses methodListLock and cacheUpdateLock. The caller must hold neither.
 **********************************************************************/
-
-// 调用C++的析构函数
 static void object_cxxDestructFromClass(id obj, Class cls)
 {
     void (*dtor)(id);
@@ -600,7 +598,7 @@ static void _class_resolveClassMethod(Class cls, SEL sel, id inst)
 
     BOOL (*msg)(Class, SEL, SEL) = (__typeof__(msg))objc_msgSend;
     bool resolved = msg(_class_getNonMetaClass(cls, inst), 
-                        SEL_resolveClassMethod, sel);
+                        SEL_resolveClassMethod, sel); // msg(inst, resolve, sel)
 
     // Cache the result (good or bad) so the resolver doesn't fire next time.
     // +resolveClassMethod adds to self->ISA() a.k.a. cls

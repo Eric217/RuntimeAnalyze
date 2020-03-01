@@ -49,9 +49,11 @@ typedef struct objc_object *id;
 /// An opaque type that represents a method selector.
 typedef struct objc_selector *SEL;
 
-/// A pointer to the function of a method implementation. 
+/// A pointer to the function of a method implementation.
+/* el_comment !OBJC_OLD_DISPATCH_PROTOTYPES 为1。
+ 使用IMP时注意⚠️ IMP 约定有两个隐藏参数 id, SEL，即 self 和 _cmd，来自闭包的IMP特殊考虑，详见 method_t 声明 */
 #if !OBJC_OLD_DISPATCH_PROTOTYPES
-typedef void (*IMP)(void /* id, SEL, ... */ ); 
+typedef void (*IMP)(void /* id, SEL, ... */ );
 #else
 typedef id _Nullable (*IMP)(id _Nonnull, SEL _Nonnull, ...); 
 #endif

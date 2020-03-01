@@ -100,8 +100,7 @@ void add_category_to_loadable_list(Category cat)
     loadMethodLock.assertLocked();
     // 获取Category的load方法的IMP
     method = _category_getLoadMethod(cat);
-
-    // 如果Category没有load方法则return
+ 
     if (!method) return;
 
     if (PrintLoading) {
@@ -264,6 +263,7 @@ static bool call_category_loads(void)
     }
     used -= shift;
 
+    // el_comment loadable_categories 等三个静态变量可能在别处修改了
     // Copy any new +load candidates from the new list to the detached list.
     new_categories_added = (loadable_categories_used > 0);
     for (i = 0; i < loadable_categories_used; i++) {

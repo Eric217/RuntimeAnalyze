@@ -75,11 +75,16 @@ typedef DisguisedPtr<objc_object *> weak_referrer_t;
 // The low two bits of a pointer-aligned DisguisedPtr will always be 0b00
 // (disguised nil or 0x80..00) or 0b11 (any other address).
 // Therefore out_of_line_ness == 0b10 is used to mark the out-of-line state.
+/* el_comment 原注释 0b11 那里应该错了。
+ 地址0、0x80..00 的伪装在 DisguisedPtr 里解释过，低两位是0；其他任何地址，一个对齐的有效64位地址，
+ 低两位一定是0，高两位一定是0，伪装后，高两位才一定是0b11，低两位一定是0b00，综上，所有伪装指针的低两位一定是 0b00。
+ 如果读出不是0b00，则 inline_referrers[1] 不是地址，意义是弱引用者大于四个，不再用数组，改用哈希表保存。
+ 所以实现 out_of_line() 判断是否超过四个。可以用0x10或0x01、0x11标记。 */
 #define REFERRERS_OUT_OF_LINE 2
 
 struct weak_entry_t {
     DisguisedPtr<objc_object> referent;
-    // C++联合体
+    
     union {
         struct {
             weak_referrer_t *referrers;

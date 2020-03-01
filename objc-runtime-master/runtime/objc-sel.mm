@@ -165,7 +165,7 @@ static SEL __sel_registerName(const char *name, int lock, int copy)
                                           (unsigned)SelrefCount);
     }
     if (lock) {
-        // Rescan in case it was added while we dropped the lock
+        // Rescan in case it was added while we dropped the lock (between unlockRead and write)
         result = (SEL)NXMapGet(namedSelectors, name);
     }
     if (!result) {

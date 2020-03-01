@@ -127,7 +127,10 @@ static _objc_initializing_classes *_fetchInitializingClassList(bool create)
     _objc_pthread_data *data;
     _objc_initializing_classes *list;
     Class *classes;
-
+    
+    /* el_comment 线程私有空间：每个线程可以保存自己的数据，k-v，k(dtor)
+     这里的 data 包含当前线程正在初始化的类列表。
+     列表元素是 metaclass，因为类初始化信息保存在元类中 */
     data = _objc_fetch_pthread_data(create);
     if (data == nil) return nil;
 
@@ -147,6 +150,7 @@ static _objc_initializing_classes *_fetchInitializingClassList(bool create)
         // If _objc_initializing_classes exists, allocate metaclass array, 
         // even if create == NO.
         // Allow 4 simultaneous class inits on this thread before realloc.
+        // 初始设置4个空位
         list->classesAllocated = 4;
         classes = (Class *)
             calloc(list->classesAllocated, sizeof(Class));
@@ -258,7 +262,7 @@ static void _setThisThreadIsNotInitializingClass(Class cls)
     _objc_fatal("thread is not initializing this class!");  
 }
 
-
+// el_comment subclass 与 next 是兄弟类
 typedef struct PendingInitialize {
     Class subclass;
     struct PendingInitialize *next;
@@ -337,6 +341,7 @@ static void _finishInitializingAfter(Class cls, Class supercls)
 
     pending = (PendingInitialize *)malloc(sizeof(*pending));
     pending->subclass = cls;
+    // el_comment 如果cls已有兄弟类向map中插入了 super->pending，那么设置 next 为兄弟pending，更新map
     pending->next = (PendingInitialize *)
         NXMapGet(pendingInitializeMap, supercls);
     NXMapInsert(pendingInitializeMap, supercls, pending);
@@ -481,8 +486,7 @@ void performForkChildInitialize(Class cls, Class supercls)
 * class_initialize.  Send the '+initialize' message on demand to any
 * uninitialized class. Force initialization of superclasses first.
 **********************************************************************/
-
-// 第一次调用类的方法，初始化类对象
+ 
 void _class_initialize(Class cls)
 {
     assert(!cls->isMetaClass());
@@ -492,7 +496,7 @@ void _class_initialize(Class cls)
 
     // Make sure super is done initializing BEFORE beginning to initialize cls.
     // See note about deadlock above.
-    // 递归初始化父类。initizlize不用显式的调用super，因为runtime已经在内部调用了
+    // 1 递归初始化父类
     supercls = cls->superclass;
     if (supercls  &&  !supercls->isInitialized()) {
         _class_initialize(supercls);
@@ -537,7 +541,7 @@ void _class_initialize(Class cls)
         @try
 #endif
         {
-            // 通过objc_msgSend()函数调用initialize方法
+            // 2 通过 objc_msgSend() 调用 +initialize
             callInitialize(cls);
 
             if (PrintInitializing) {
@@ -557,8 +561,7 @@ void _class_initialize(Class cls)
         @finally
 #endif
         {
-            // Done initializing.
-            // 执行initialize方法后，进行系统的initialize过程
+            // 3 Done initializing: setInitialized(); setHasRR/AWZ; notify waiters
             lockAndFinishInitializing(cls, supercls);
         }
         return;

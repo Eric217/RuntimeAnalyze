@@ -142,11 +142,9 @@ enum HaveNew { DontHaveNew = false, DoHaveNew = true };
 
 // 在NSObject上层定义的weakTable
 struct SideTable {
-    // 锁对象
+    
     spinlock_t slock;
-    // 索引哈希表(稠密哈希)
     RefcountMap refcnts;
-    // weak表(核心实现)
     weak_table_t weak_table;
 
     SideTable() {
@@ -229,9 +227,8 @@ static void SideTableInit() {
 static StripedMap<SideTable>& SideTables() {
     return *reinterpret_cast<StripedMap<SideTable>*>(SideTableBuf);
 }
-// 上面的reinterpret_cast可以理解为C++版的强制类型转换符
-
-// anonymous namespace
+ 
+// anonymous namespace // el_comment C++基础：文件外是不可能访问到匿名空间的代码的
 };
 
 void SideTableLockAll() {

@@ -189,7 +189,9 @@ using namespace objc_references_support;
 // class AssociationsManager manages a lock / hash table singleton pair.
 // Allocating an instance acquires the lock, and calling its assocations()
 // method lazily allocates the hash table.
-
+/* el_comment 整体结构两层map：
+ obj -> map
+ key -> value(ObjcAssociation) */
 spinlock_t AssociationsManagerLock;
 
 class AssociationsManager {

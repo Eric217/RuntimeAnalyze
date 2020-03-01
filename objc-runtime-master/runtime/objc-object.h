@@ -415,6 +415,7 @@ inline void
 objc_object::rootDealloc()
 {
     if (isTaggedPointer()) return;  // fixme necessary?
+    // el_comment tagged pointer read isa raise page-fault. thus return
 
     if (fastpath(isa.nonpointer  &&  
                  !isa.weakly_referenced  &&  

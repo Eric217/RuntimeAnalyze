@@ -348,7 +348,7 @@ static class_ro_t *make_ro_writeable(class_rw_t *rw)
     } else {
         class_ro_t *ro = (class_ro_t *)
             memdup(rw->ro, sizeof(*rw->ro));
-        rw->ro = ro;
+        rw->ro = ro; // el_comment 旧的 ro 没有 free ？？？
         rw->flags |= RW_COPIED_RO;
     }
     return (class_ro_t *)rw->ro;
@@ -559,6 +559,7 @@ fixupMethodList(method_list_t *mlist, bool bundleCopy, bool sort)
     sel_lock();
     
     // Unique selectors in list.
+    // el_comment Unique???
     for (auto& meth : *mlist) {
         const char *name = sel_cname(meth.name);
         meth.name = sel_registerNameNoLock(name, bundleCopy);
@@ -976,9 +977,7 @@ static char *copySwiftV1MangledName(const char *string, bool isProtocol = false)
 
 // This is a misnomer: gdb_objc_realized_classes is actually a list of 
 // named classes not in the dyld shared cache, whether realized or not.
-
-// 这个参数名是个误称！
-// 参数实际上是一个类名列表，所有的类和原类都在里面，列表中不包含在dyld共享缓存中的，无论是否被实现。在运行时使用的就是这个表，动态创建类也是往这个表中添加。
+// ⚠️不要被变量名带偏
 NXMapTable *gdb_objc_realized_classes;  // exported for debuggers in objc-gdb.h
 
 static Class getClass_impl(const char *name)
@@ -1400,6 +1399,8 @@ static Class getNonMetaClass(Class metacls, id inst)
 * Used by +initialize. 
 * Locking: acquires runtimeLock
 **********************************************************************/
+/* el_comment 此函数暂时理解为：如果cls是元类或根元类，则obj->ISA()==cls，返回obj；
+ 否则返回cls。（根元类isMetaClass返回false）*/
 Class _class_getNonMetaClass(Class cls, id obj)
 {
     rwlock_writer_t lock(runtimeLock);
@@ -1794,7 +1795,7 @@ static Class realizeClass(Class cls)
     // This needs to be done after RW_REALIZED is set above, for root classes.
     // This needs to be done after class index is chosen, for root metaclasses.
     
-    // 如果父类或元类没有初始化，必须先初始化父类或元类
+    // 1 初始化父类和元类
     supercls = realizeClass(remapClass(cls->superclass));
     metacls = realizeClass(remapClass(cls->ISA()));
 
@@ -1837,8 +1838,9 @@ static Class realizeClass(Class cls)
     cls->superclass = supercls;
     cls->initClassIsa(metacls);
 
+    // 2 调整变量位置（如果父类变量变多了）
     // Reconcile instance variable offsets / layout.
-    // This may reallocate class_ro_t, updating our ro variable.
+    // This may reallocate class_ro_t, updating our ro variable.(参数ro是引用)
     if (supercls  &&  !isMeta) reconcileInstanceVariables(cls, supercls, ro);
 
     // Set fastInstanceSize if it wasn't set already.
@@ -1851,7 +1853,8 @@ static Class realizeClass(Class cls)
             cls->setHasCxxCtor();
         }
     }
-
+    
+    // 3 维护父子类关系
     // Connect this class to its superclass's subclass lists
     if (supercls) {
         addSubclass(supercls, cls);
@@ -1859,7 +1862,7 @@ static Class realizeClass(Class cls)
         addRootClass(cls);
     }
 
-    // 初始化class_rw_t
+    // 4 根据 ro 初始化 rw
     methodizeClass(cls);
 
     return cls;
@@ -2651,7 +2654,8 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
             }
 
             // 这块和上面逻辑一样，区别在于这块是对Meta Class做操作，而上面则是对Class做操作
-            // 根据下面的逻辑，从代码的角度来说，是可以对原类添加Category的
+            // 根据下面的逻辑，从代码的角度来说，是可以对元类添加Category的
+            /* el_comment 根据 methodizeClass 和下面代码，如果类遵守某个 Protocol，那么其元类也遵守 */
             if (cat->classMethods  ||  cat->protocols  
                 ||  (hasClassProperties && cat->_classProperties)) 
             {
@@ -2756,15 +2760,14 @@ static void schedule_class_load(Class cls)
 {
     if (!cls) return;
     assert(cls->isRealized());  // _read_images should realize
-    // 已经添加Class的load方法到调用列表中
     if (cls->data()->flags & RW_LOADED) return;
 
-    // 确保super已经被添加到load列表中，默认是整个继承者链的顺序
+    // 先处理父类
     schedule_class_load(cls->superclass);
     
     // 将IMP和Class添加到调用列表
     add_class_to_loadable_list(cls);
-    // 设置Class的flags，表示已经添加Class到调用列表中
+    
     cls->setInfo(RW_LOADED); 
 }
 
@@ -2777,7 +2780,7 @@ bool hasLoadMethods(const headerType *mhdr)
     return false;
 }
 
-// 准备Class list 和 Category list
+// 准备 Class list 和 Category list
 void prepare_load_methods(const headerType *mhdr)
 {
     size_t count, i;
@@ -2788,7 +2791,7 @@ void prepare_load_methods(const headerType *mhdr)
     classref_t *classlist = 
         _getObjc2NonlazyClassList(mhdr, &count);
     for (i = 0; i < count; i++) {
-        // 设置Class的调用列表
+        // 把某个类的 +load IMP 加入调用列表
         schedule_class_load(remapClass(classlist[i]));
     }
     
@@ -2799,12 +2802,12 @@ void prepare_load_methods(const headerType *mhdr)
         Class cls = remapClass(cat->cls);
         // 忽略弱链接的类别
         if (!cls) continue;  // category for ignored weak-linked class
-        // 实例化所属的类
         realizeClass(cls);
         assert(cls->ISA()->isRealized());
-        // 设置Category的调用列表
+        // 把某Category的 +load IMP 加入调用列表
         add_category_to_loadable_list(cat);
     }
+    // 总体顺序：父类 - 子类 - Category
 }
 
 
@@ -4505,19 +4508,18 @@ static method_t *findMethodInSortedMethodList(SEL key, const method_list_t *list
 * fixme
 * Locking: runtimeLock must be read- or write-locked by the caller
 **********************************************************************/
-
-// 根据传入的SEL，查找对应的method_t结构体
+ 
 static method_t *search_method_list(const method_list_t *mlist, SEL sel)
 {
     int methodListIsFixedUp = mlist->isFixedUp();
     int methodListHasExpectedSize = mlist->entsize() == sizeof(method_t);
-    
+    /* el_comment __builtin_expect 编译优化；
+     添加cat里的方法时都会fixup，包括排序、unique，所以可以用二分查找。 */
     if (__builtin_expect(methodListIsFixedUp && methodListHasExpectedSize, 1)) {
         return findMethodInSortedMethodList(sel, mlist);
     } else {
         // Linear search of unsorted method list
         for (auto& meth : *mlist) {
-            // SEL本质上就是字符串，查找的过程就是进行字符串对比
             if (meth.name == sel) return &meth;
         }
     }
@@ -4543,14 +4545,12 @@ getMethodNoSuper_nolock(Class cls, SEL sel)
     runtimeLock.assertLocked();
 
     assert(cls->isRealized());
-    
-    // 根据for循环，从methodList列表中，从头开始遍历，每次遍历后向后移动一位地址。
+   
     for (auto mlists = cls->data()->methods.beginLists(), 
               end = cls->data()->methods.endLists(); 
          mlists != end;
          ++mlists)
     {
-        // 对sel参数和method_t做匹配，如果匹配上则返回。
         method_t *m = search_method_list(*mlists, sel);
         if (m) return m;
     }
@@ -4649,9 +4649,29 @@ log_and_fill_cache(Class cls, IMP imp, SEL sel, id receiver, Class implementer)
 * This lookup avoids optimistic cache scan because the dispatcher 
 * already tried that.
 **********************************************************************/
+/* el_comment 目前架构代码在 objc-msg-arm64.s
+ objc_msgSend 汇编解析
+ receiver nil check/tagged pointer check
+     if nil return 0
+     if tagged 根据 tagged 规则获取所属类的 isa
+ get receiver isa
+ CacheLookup NORMAL
+     从 isa 的方法缓存散列表中寻找 SEL 的 bucket_t
+     找到了 CacheHit
+         call IMP
+     没找到 CheckMiss
+         call __objc_msgSend_uncache
+             MethodTableLookup
+                 备份寄存器(说明将调用一个C函数)
+                 call __class_lookupMethodAndLoadCache3
+                 还原寄存器
+                  
+ 
+ */
+/* el_comment 当前类的cache未命中，查找当前类方法表、继承链中所有父类cache及方法表；
+ 找到IMP后加入当前类cache，允许动态方法解析。(cache=false, resolver=ture) */
 IMP _class_lookupMethodAndLoadCache3(id obj, SEL sel, Class cls)
 {
-    // 3. 通过cache3内部调用lookUpImpOrForward函数
     return lookUpImpOrForward(cls, sel, obj, 
                               YES/*initialize*/, NO/*cache*/, YES/*resolver*/);
 }
@@ -4669,8 +4689,7 @@ IMP _class_lookupMethodAndLoadCache3(id obj, SEL sel, Class cls)
 *   must be converted to _objc_msgForward or _objc_msgForward_stret.
 *   If you don't want forwarding at all, use lookUpImpOrNil() instead.
 **********************************************************************/
-
-// 4. 执行查找imp和转发的代码
+ 
 IMP lookUpImpOrForward(Class cls, SEL sel, id inst, 
                        bool initialize, bool cache, bool resolver)
 {
@@ -4678,11 +4697,9 @@ IMP lookUpImpOrForward(Class cls, SEL sel, id inst,
     bool triedResolver = NO;
 
     runtimeLock.assertUnlocked();
-
-    // 如果cache是YES，则从缓存中查找IMP。如果是从cache3函数进来，则不会执行cache_getImp()函数
+ 
     if (cache) {
-        // 通过cache_getImp函数查找IMP，查找到则返回IMP并结束调用
-        imp = cache_getImp(cls, sel);
+        imp = cache_getImp(cls, sel); // CacheLookup GETIMP
         if (imp) return imp;
     }
 
@@ -4728,15 +4745,15 @@ IMP lookUpImpOrForward(Class cls, SEL sel, id inst,
  retry:    
     runtimeLock.assertReading();
 
-    // 尝试获取这个类的缓存
+    // 上面cache_getImp没加锁，加锁时可能其他线程已cache。再次尝试从缓存中取
     imp = cache_getImp(cls, sel);
     if (imp) goto done;
 
     {
-        // 如果没有从cache中查找到，则从方法列表中获取Method
+        // 只从当前类的方法列表中查找
         Method meth = getMethodNoSuper_nolock(cls, sel);
         if (meth) {
-            // 如果获取到对应的Method，则加入缓存并从Method获取IMP
+            // 加入当前类缓存列表
             log_and_fill_cache(cls, meth->imp, sel, inst, cls);
             imp = meth->imp;
             goto done;
@@ -4752,17 +4769,17 @@ IMP lookUpImpOrForward(Class cls, SEL sel, id inst,
              curClass = curClass->superclass)
         {
             // Halt if there is a cycle in the superclass chain.
+            // Runtime metadata corrupted.
             if (--attempts == 0) {
                 _objc_fatal("Memory corruption in class list.");
             }
             
             // Superclass cache.
-            // 获取父类缓存的IMP
             imp = cache_getImp(curClass, sel);
             if (imp) {
                 if (imp != (IMP)_objc_msgForward_impcache) {
                     // Found the method in a superclass. Cache it in this class.
-                    // 如果发现父类的方法，并且不再缓存中，在下面的函数中缓存方法
+                    // 注意是缓存到当前类，不是父类！！！
                     log_and_fill_cache(cls, imp, sel, inst, curClass);
                     goto done;
                 }
@@ -4775,7 +4792,6 @@ IMP lookUpImpOrForward(Class cls, SEL sel, id inst,
             }
             
             // Superclass method list.
-            // 在父类的方法列表中，获取method_t对象。如果找到则缓存查找到的IMP
             Method meth = getMethodNoSuper_nolock(curClass, sel);
             if (meth) {
                 log_and_fill_cache(cls, meth->imp, sel, inst, curClass);
@@ -4786,8 +4802,7 @@ IMP lookUpImpOrForward(Class cls, SEL sel, id inst,
     }
 
     // No implementation found. Try method resolver once.
-
-    // 如果没有找到，则尝试动态方法解析
+    // 尝试一次动态方法解析。
     if (resolver  &&  !triedResolver) {
         runtimeLock.unlockRead();
         _class_resolveMethod(cls, sel, inst);
@@ -4801,7 +4816,7 @@ IMP lookUpImpOrForward(Class cls, SEL sel, id inst,
     // No implementation found, and method resolver didn't help. 
     // Use forwarding.
 
-    // 如果没有IMP被发现，并且动态方法解析也没有处理，则进入消息转发阶段
+    // 即使动态方法解析也没有找到IMP，设置IMP为通用的转发函数，缓存结果
     imp = (IMP)_objc_msgForward_impcache;
     cache_fill(cls, sel, imp, inst);
 
@@ -4924,8 +4939,8 @@ objc_class::setInitialized()
 
     rwlock_reader_t lock(runtimeLock);
 
-    // Scan metaclass for custom AWZ.
-    // Scan metaclass for custom RR.
+    // Scan metaclass for custom AWZ(alloc/allocWithZone).
+    // Scan metaclass for custom RR(retain/release/...).
     // Scan class for custom RR.
     // Also print custom RR/AWZ because we probably haven't done it yet.
 
@@ -4944,7 +4959,6 @@ objc_class::setInitialized()
     }
     else if (metacls == classNSObject()->ISA()) {
         // NSObject's metaclass AWZ is default, but we still need to check cats
-        // 查找是否实现了alloc和allocWithZone方法
         auto& methods = metacls->data()->methods;
         for (auto mlists = methods.beginCategoryMethodLists(), 
                   end = methods.endCategoryMethodLists(metacls); 
@@ -6388,21 +6402,16 @@ object_copyFromZone(id oldObj, size_t extraBytes, void *zone)
 * Removes associative references.
 * Returns `obj`. Does nothing if `obj` is nil.
 **********************************************************************/
-
-// dealloc方法的核心实现，内部会做判断和析构操作
 void *objc_destructInstance(id obj) 
 {
     if (obj) {
         // Read all of the flags at once for performance.
-        // 判断是否有OC或C++的析构函数
         bool cxx = obj->hasCxxDtor();
-        // 对象是否有相关联的引用
         bool assoc = obj->hasAssociatedObjects();
-
+        
         // This order is important.
-        // 对当前对象进行析构
+      
         if (cxx) object_cxxDestruct(obj);
-        // 移除所有对象的关联，例如把weak指针置nil
         if (assoc) _object_remove_assocations(obj);
         obj->clearDeallocating();
     }

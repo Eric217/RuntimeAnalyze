@@ -39,6 +39,8 @@
 /* Types */
 
 #if !OBJC_TYPES_DEFINED
+/* el_comment 现在已定义 OBJC_TYPES_DEFINED 和 __OBJC2__
+ 正确定义在 objc-runtime-new.h */
 
 /// An opaque type that represents a method in a class definition.
 typedef struct objc_method *Method;

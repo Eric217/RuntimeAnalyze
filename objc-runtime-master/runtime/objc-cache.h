@@ -6,6 +6,7 @@
 
 __BEGIN_DECLS
 
+/* el_comment 内部直接调用 CacheLookup GETIMP */
 extern IMP cache_getImp(Class cls, SEL sel);
 
 extern void cache_fill(Class cls, SEL sel, IMP imp, id receiver);
