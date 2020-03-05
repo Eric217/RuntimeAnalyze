@@ -494,7 +494,7 @@ objc_object::rootRetain(bool tryRetain, bool handleOverflow)
             if (!tryRetain && sideTableLocked) sidetable_unlock();
             return nil;
         }
-        uintptr_t carry;
+        uintptr_t carry; // 溢出标志
         newisa.bits = addc(newisa.bits, RC_ONE, 0, &carry);  // extra_rc++
 
         if (slowpath(carry)) {
@@ -505,6 +505,7 @@ objc_object::rootRetain(bool tryRetain, bool handleOverflow)
             }
             // Leave half of the retain counts inline and 
             // prepare to copy the other half to the side table.
+            // bits存储满时，移一半到sidetable，这样每次只操作bits，很少操作表，速度快
             if (!tryRetain && !sideTableLocked) sidetable_lock();
             sideTableLocked = true;
             transcribeToSideTable = true;
@@ -559,8 +560,7 @@ objc_object::rootReleaseShouldDealloc()
 {
     return rootRelease(false, false);
 }
-
-// 调用release后的函数
+ 
 ALWAYS_INLINE bool 
 objc_object::rootRelease(bool performDealloc, bool handleUnderflow)
 {
@@ -675,13 +675,12 @@ objc_object::rootRelease(bool performDealloc, bool handleUnderflow)
     }
     newisa.deallocating = true;
     if (!StoreExclusive(&isa.bits, oldisa.bits, newisa.bits)) goto retry;
-
+    // 注意保存的 bits，仍然是旧的计数，仍然是 1
+    
     if (slowpath(sideTableLocked)) sidetable_unlock();
 
     __sync_synchronize();
-    // 是否需要执行dealloc方法
-    if (performDealloc) {
-        // SEL_dealloc是dealloc的selector
+    if (performDealloc) { // 执行 dealloc
         ((void(*)(objc_object *, SEL))objc_msgSend)(this, SEL_dealloc);
     }
     return true;
@@ -1172,7 +1171,10 @@ static ALWAYS_INLINE bool
 prepareOptimizedReturn(ReturnDisposition disposition)
 {
     assert(getReturnDisposition() == ReturnAtPlus0);
-
+    // el_comment __builtin_return_address 是得到函数的返回地址
+    // 参数表示层数，如 0 表示当前函数体返回地址
+    // 注意，这个函数是 inline 函数，也就是说，本层不算，这里的 0 是上一层的返回地址！
+    
     if (callerAcceptsOptimizedReturn(__builtin_return_address(0))) {
         if (disposition) setReturnDisposition(disposition);
         return true;

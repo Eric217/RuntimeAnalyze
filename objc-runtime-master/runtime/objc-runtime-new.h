@@ -206,7 +206,12 @@ struct entsize_list_tt {
     };
 };
 
-/* el_comment 关于 types，根据 TypeEncoding 文档的描述的确可以写出一个IMP的types，也正常用（来自闭包的IMP除外），但系统生成的types例如 c24@0:8@16 会添加数字等额外符号，参考 objc-typeencoding.mm 180行，有时间摸清楚。 */
+/* el_comment 关于types，如果需要手动写，可以参照TypeEncoding文档。
+ 例 - (int)test:(int)age height:(float)height
+ 从左到右(含默认参数 id self 和 SEL cmd)是 int->id->SEL->int->float
+ 那么结果是 i@:if，可以写的更细，加入参数总长度24(8844)，每个参数的偏移量，
+ 写为i24@0:8i16:f20 也可以不加数字，参考 objc-typeencoding.mm 180行左右。
+ 关于闭包生成的IMP，暂不知怎么写。 */
 struct method_t {
     SEL name;
     const char *types;

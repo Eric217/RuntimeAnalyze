@@ -139,8 +139,7 @@ typedef objc::DenseMap<DisguisedPtr<objc_object>,size_t,true> RefcountMap;
 // Template parameters.
 enum HaveOld { DontHaveOld = false, DoHaveOld = true };
 enum HaveNew { DontHaveNew = false, DoHaveNew = true };
-
-// 在NSObject上层定义的weakTable
+ 
 struct SideTable {
     
     spinlock_t slock;
@@ -319,8 +318,11 @@ enum CrashIfDeallocating {
     DontCrashIfDeallocating = false, DoCrashIfDeallocating = true
 };
 
-// 下面的函数是C++的模板函数
-// newObj是被指向的对象，location是weak指针
+// el_comment: all below
+
+/// 如果 haveNew，需要存新值；如果 haveOld，需要删旧值
+/// @param newObj: referent 被引用者
+/// @param location: referrer* 弱引用者指针
 template <HaveOld haveOld, HaveNew haveNew,
           CrashIfDeallocating crashIfDeallocating>
 static id 
@@ -331,44 +333,36 @@ storeWeak(id *location, objc_object *newObj)
 
     Class previouslyInitializedClass = nil;
     id oldObj;
-    SideTable *oldTable;
-    SideTable *newTable;
+    SideTable *oldTable; // 如果 haveOld，需要删旧值，旧值所在的 sidetable
+    SideTable *newTable; // 如果 haveNew，新值所在的 sidetable
 
     // Acquire locks for old and new values.
     // Order by lock address to prevent lock ordering problems. 
     // Retry if the old value changes underneath us.
-    
-    // haveNew表示初始化weak指针，haveOld表示释放weak指针
+     
  retry:
-    /**
-     SideTables()用来保存整个程序所有被weak指针指向的对象，和应用程序是一对一的。每个对象对应其中的一个元素，例如一个两个weak指针指向同一个对象，则这个对象对应一个SideTable对象，这个对象中保存这两个weak指针。
-     在被指向的对象第一次传入时，会创建新的内存空间，如果是第二次被weak指向则取出之前的weak_table。当释放weak指针时也是如此，先取出SideTable对象再从weak_table中移除对应的weak指针。
-     例如下面在haveNew添加或创建weak指针时，其创建的SideTable内存地址是0x00000001008c8000，则其销毁时会取出同样的对象出来。
-     */
+    
     if (haveOld) {
         oldObj = *location;
-        // 从表中取出weak指针tableView
         oldTable = &SideTables()[oldObj];
     } else {
         oldTable = nil;
     }
     if (haveNew) {
-        // 分配一块新的内存，新内存初始化均为空
         newTable = &SideTables()[newObj];
     } else {
         newTable = nil;
     }
 
-    // spinlock_t自旋锁，加锁
     SideTable::lockTwo<haveOld, haveNew>(oldTable, newTable);
-
+    // 如果加锁前别的线程刚好修改了该弱引用变量，则重试
+    // 一次性加锁两个 sidetable 的 lock，但是 oldTable 可能等于 newTable，
+    // 为防止同一个锁 lock 两次，内部通过比较两个 lock 的地址，相同则只 lock 一次
     if (haveOld  &&  *location != oldObj) {
-        // spinlock_t自旋锁，解锁
         SideTable::unlockTwo<haveOld, haveNew>(oldTable, newTable);
         goto retry;
     }
 
-    // 下面的代码判断弱引用对象所属的类对象是否未执行+initialized方法，如果未执行则调用下面的代码初始化类对象。以保证在弱引用对象和+initialized方法之间，不会产生死锁。
     if (haveNew  &&  newObj) {
         Class cls = newObj->getIsa();
         if (cls != previouslyInitializedClass  &&  
@@ -383,8 +377,17 @@ storeWeak(id *location, objc_object *newObj)
             // then we may proceed but it will appear initializing and 
             // not yet initialized to the check above.
             // Instead set previouslyInitializedClass to recognize it on retry.
+            
+            // 如果一个类还没初始化，需要先调用 _class_initialize，
+            // 函数内部会标记 initializing，并调用 +initialize
+            // 如果在 +initialize 内恰好有代码要 storeWeak 一个自己类的实例
+            // 则会再次走到上句 _class_initialize，函数内会判断是否已经处于 initializing
+            // 处于 initializing 则直接返回。这里标记为 previously，然后 retry
+            // retry 时就会跳过这个环节。
+            // initialize 主要是为了初始化一些标志位，而操作 weak 并不会用到这些位
+            // 所以是可以先操作 weak(initializing 状态下)，返回后继续完成 initialize
             previouslyInitializedClass = cls;
-
+            
             goto retry;
         }
     }
@@ -647,7 +650,7 @@ objc_moveWeak(id *dst, id *src)
    Each pointer is either an object to release, or POOL_BOUNDARY which is 
      an autorelease pool boundary.
    A pool token is a pointer to the POOL_BOUNDARY for that pool. When 
-     the pool is popped, every object hotter than the sentinel is released.
+     the pool is popped, every object hotter than the sentinel 哨兵 is released.
    The stack is divided into a doubly-linked list of pages. Pages are added 
      and deleted as necessary. 
    Thread-local storage points to the hot page, where newly autoreleased 
@@ -736,6 +739,7 @@ class AutoreleasePoolPage
         return free(p);
     }
 
+    // el_comment mprotect 让当前 page 只可读，不可写
     inline void protect() {
 #if PROTECT_AUTORELEASEPOOL
         mprotect(this, SIZE, PROT_READ);
@@ -958,6 +962,9 @@ class AutoreleasePoolPage
         return EMPTY_POOL_PLACEHOLDER;
     }
 
+    /* el_comment tls_get/set_direct 实际就是操作 线程私有空间中的键值对
+     一个 runloop 对应一个线程 对应一个PoolPage的双向链表
+     autorelease的对象加入page，page满后申请下一个page。hotPage 返回最近的page */
     static inline AutoreleasePoolPage *hotPage() 
     {
         AutoreleasePoolPage *result = (AutoreleasePoolPage *)
@@ -985,7 +992,7 @@ class AutoreleasePoolPage
         return result;
     }
 
-
+    // el_comment obj可能为nil，哨兵对象
     static inline id *autoreleaseFast(id obj)
     {
         AutoreleasePoolPage *page = hotPage();
@@ -1412,14 +1419,16 @@ objc_object::sidetable_addExtraRC_nolock(size_t delta_rc)
     size_t& refcntStorage = table.refcnts[this];
     size_t oldRefcnt = refcntStorage;
     // isa-side bits should not be set here
+    // 后两位是标识位
     assert((oldRefcnt & SIDE_TABLE_DEALLOCATING) == 0);
     assert((oldRefcnt & SIDE_TABLE_WEAKLY_REFERENCED) == 0);
-
+    
     if (oldRefcnt & SIDE_TABLE_RC_PINNED) return true;
 
     uintptr_t carry;
     size_t newRefcnt = 
         addc(oldRefcnt, delta_rc << SIDE_TABLE_RC_SHIFT, 0, &carry);
+    // 如果溢出，设置最高位为 1，对象引用数太多已经管不了了，但是不太可能达到 2^62 左右
     if (carry) {
         refcntStorage =
             SIDE_TABLE_RC_PINNED | (oldRefcnt & SIDE_TABLE_FLAG_MASK);
