@@ -392,12 +392,12 @@ storeWeak(id *location, objc_object *newObj)
         }
     }
 
-    // 移除旧weak引用，添加新weak引用。(指针重指向和移除weak都是这里处理)
+    // 移除旧 weak 引用关系，并不会 *location = nil
     if (haveOld) {
         weak_unregister_no_lock(&oldTable->weak_table, oldObj, location);
     }
 
-    // 向weak表中添加弱引用
+    // 添加新弱引用关系，会让 *location = (id)newObj
     if (haveNew) {
         newObj = (objc_object *)
             weak_register_no_lock(&newTable->weak_table, (id)newObj, location, 
@@ -509,6 +509,8 @@ objc_initWeakOrNil(id *location, id newObj)
  * 
  * @param location The weak pointer address. 
  */
+// el_comment 这个函数不会让 *location = nil，只是摧毁 weak 关系。
+// 编译器可能会执行完本函数插入 *location = nil，或者其他办法，不用担心。
 void
 objc_destroyWeak(id *location)
 {
