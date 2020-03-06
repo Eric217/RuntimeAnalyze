@@ -624,7 +624,7 @@ objc_copyWeak(id *dst, id *src)
 {
     id obj = objc_loadWeakRetained(src);
     objc_initWeak(dst, obj);
-    objc_release(obj);
+    objc_release(obj); // 为什么要 release？不是有 autorelease？
 }
 
 /** 

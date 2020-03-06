@@ -75,6 +75,7 @@ union isa_t
 
 #if SUPPORT_PACKED_ISA
 
+    // MSB Most Significant Bit 的缩写 指最高有效位
     // extra_rc must be the MSB-most field (so it matches carry/overflow flags)
     // nonpointer must be the LSB (fixme or get rid of it)
     // shiftcls must occupy the same bits that a real class pointer would

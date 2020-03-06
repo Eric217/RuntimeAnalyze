@@ -67,7 +67,7 @@ struct SyncList {
 #define LOCK_FOR_OBJ(obj) sDataLists[obj].lock
 #define LIST_FOR_OBJ(obj) sDataLists[obj].data
 static StripedMap<SyncList> sDataLists;
-
+// 又遇到了分拆锁了。obj 指针哈希后找到下标，从该 map 中找到 SyncList、lock
 
 enum usage { ACQUIRE, RELEASE, CHECK };
 
@@ -110,9 +110,11 @@ void _destroySyncCache(struct SyncCache *cache)
 static SyncData* id2data(id object, enum usage why)
 {
     spinlock_t *lockp = &LOCK_FOR_OBJ(object);
-    SyncData **listp = &LIST_FOR_OBJ(object);
+    SyncData **listp = &LIST_FOR_OBJ(object); // 链表
     SyncData* result = NULL;
-
+    
+    // 思路 在线程
+    
 #if SUPPORT_DIRECT_THREAD_KEYS
     // Check per-thread single-entry fast cache for matching object
     bool fastCacheOccupied = NO;
@@ -157,7 +159,7 @@ static SyncData* id2data(id object, enum usage why)
 #endif
 
     // Check per-thread cache of already-owned locks for matching object
-    SyncCache *cache = fetch_cache(NO);
+    SyncCache *cache = fetch_cache(NO); // cache 也保存在 tls 中
     if (cache) {
         unsigned int i;
         for (i = 0; i < cache->used; i++) {
