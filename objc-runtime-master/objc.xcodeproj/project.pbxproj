@@ -8,8 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		00396A861C81654B00667CB8 /* libobjc.A.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D2AAC0630554660B00DB518D /* libobjc.A.dylib */; };
-		07029F90241248B4005CC6B6 /* runtime.c in Sources */ = {isa = PBXBuildFile; fileRef = 07029F8B2412478C005CC6B6 /* runtime.c */; };
-		07029F91241248B4005CC6B6 /* data.c in Sources */ = {isa = PBXBuildFile; fileRef = 07029F8F2412478C005CC6B6 /* data.c */; };
 		304E5F781F3329E7008E8A5F /* objc-msg-simulator-x86_64.s in Sources */ = {isa = PBXBuildFile; fileRef = 304E5F771F3329E7008E8A5F /* objc-msg-simulator-x86_64.s */; };
 		305B27561C7D9E96005AC125 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 305B27551C7D9E96005AC125 /* main.m */; };
 		305EC7AF1F3304D0004510DB /* objc-msg-arm64.s in Sources */ = {isa = PBXBuildFile; fileRef = 305EC7AE1F3304D0004510DB /* objc-msg-arm64.s */; };
@@ -186,11 +184,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		07029F8B2412478C005CC6B6 /* runtime.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = runtime.c; sourceTree = "<group>"; };
-		07029F8C2412478C005CC6B6 /* CMakeLists.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = CMakeLists.txt; sourceTree = "<group>"; };
-		07029F8D2412478C005CC6B6 /* Block_private.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Block_private.h; sourceTree = "<group>"; };
-		07029F8E2412478C005CC6B6 /* Block.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Block.h; sourceTree = "<group>"; };
-		07029F8F2412478C005CC6B6 /* data.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = data.c; sourceTree = "<group>"; };
 		304D5E9D1DFD0DFB00D7D1C0 /* libSystem.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libSystem.tbd; path = usr/lib/libSystem.tbd; sourceTree = SDKROOT; };
 		304D5E9F1DFD0E0B00D7D1C0 /* libSystem.B.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libSystem.B.tbd; path = usr/lib/libSystem.B.tbd; sourceTree = SDKROOT; };
 		304D5EA11DFD0ED200D7D1C0 /* libSystem.B.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libSystem.B.dylib; path = ../../../../../usr/lib/libSystem.B.dylib; sourceTree = "<group>"; };
@@ -362,18 +355,6 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		07029F8A2412478C005CC6B6 /* block */ = {
-			isa = PBXGroup;
-			children = (
-				07029F8B2412478C005CC6B6 /* runtime.c */,
-				07029F8C2412478C005CC6B6 /* CMakeLists.txt */,
-				07029F8D2412478C005CC6B6 /* Block_private.h */,
-				07029F8E2412478C005CC6B6 /* Block.h */,
-				07029F8F2412478C005CC6B6 /* data.c */,
-			);
-			path = block;
-			sourceTree = "<group>";
-		};
 		08FB7794FE84155DC02AAC07 /* objc */ = {
 			isa = PBXGroup;
 			children = (
@@ -387,7 +368,6 @@
 				08FB7795FE84155DC02AAC07 /* Source */,
 				838485B20D6D67F900CEA253 /* Other */,
 				305B27541C7D9E96005AC125 /* debug-objc */,
-				07029F8A2412478C005CC6B6 /* block */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
 				304D5E9C1DFD0DFB00D7D1C0 /* Frameworks */,
 			);
@@ -766,22 +746,6 @@
 		};
 /* End PBXHeadersBuildPhase section */
 
-/* Begin PBXLegacyTarget section */
-		07029F80241246CC005CC6B6 /* BlockSource */ = {
-			isa = PBXLegacyTarget;
-			buildArgumentsString = "$(ACTION)";
-			buildConfigurationList = 07029F83241246CC005CC6B6 /* Build configuration list for PBXLegacyTarget "BlockSource" */;
-			buildPhases = (
-			);
-			buildToolPath = /Applications/CMake.app/Contents/bin/cmake;
-			dependencies = (
-			);
-			name = BlockSource;
-			passBuildSettingsInEnvironment = 1;
-			productName = BlockSource;
-		};
-/* End PBXLegacyTarget section */
-
 /* Begin PBXNativeTarget section */
 		305B27521C7D9E96005AC125 /* debug-objc */ = {
 			isa = PBXNativeTarget;
@@ -847,11 +811,6 @@
 				BuildIndependentTargetsInParallel = NO;
 				LastUpgradeCheck = 0900;
 				TargetAttributes = {
-					07029F80241246CC005CC6B6 = {
-						CreatedOnToolsVersion = 11.0;
-						DevelopmentTeam = 98RSU49GZT;
-						ProvisioningStyle = Automatic;
-					};
 					305B27521C7D9E96005AC125 = {
 						CreatedOnToolsVersion = 7.2.1;
 					};
@@ -874,7 +833,6 @@
 				D2AAC0620554660B00DB518D /* objc */,
 				83E50CD70FF19E8200D74C19 /* objc-simulator */,
 				305B27521C7D9E96005AC125 /* debug-objc */,
-				07029F80241246CC005CC6B6 /* BlockSource */,
 			);
 		};
 /* End PBXProject section */
@@ -930,8 +888,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				07029F90241248B4005CC6B6 /* runtime.c in Sources */,
-				07029F91241248B4005CC6B6 /* data.c in Sources */,
 				792EA50D207B4888006BF581 /* TestObject.m in Sources */,
 				305B27561C7D9E96005AC125 /* main.m in Sources */,
 			);
@@ -1049,77 +1005,6 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		07029F81241246CC005CC6B6 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CODE_SIGN_STYLE = Automatic;
-				COPY_PHASE_STRIP = NO;
-				DEBUGGING_SYMBOLS = YES;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = 98RSU49GZT;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
-				MTL_FAST_MATH = YES;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-			};
-			name = Debug;
-		};
-		07029F82241246CC005CC6B6 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CODE_SIGN_STYLE = Automatic;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = 98RSU49GZT;
-				ENABLE_NS_ASSERTIONS = NO;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				MTL_ENABLE_DEBUG_INFO = NO;
-				MTL_FAST_MATH = YES;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-			};
-			name = Release;
-		};
 		1DEB914B08733D8E0010E9CD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1453,15 +1338,6 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		07029F83241246CC005CC6B6 /* Build configuration list for PBXLegacyTarget "BlockSource" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				07029F81241246CC005CC6B6 /* Debug */,
-				07029F82241246CC005CC6B6 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
-		};
 		1DEB914A08733D8E0010E9CD /* Build configuration list for PBXNativeTarget "objc" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
